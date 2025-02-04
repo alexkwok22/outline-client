@@ -1,8 +1,6 @@
 package auth
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -57,14 +55,8 @@ func (lm *LicenseManager) ValidateLicense(key string) error {
 		return fmt.Errorf("授權碼長度不足")
 	}
 
-	// Create a hash of the key
-	hasher := sha256.New()
-	hasher.Write([]byte(key))
-	hash := hex.EncodeToString(hasher.Sum(nil))
-
-	// Check if the hash matches our pattern
-	// This is a simple example - in production you'd want to check against a server
-	if !strings.HasPrefix(hash, "00") {
+	// Check if the key starts with "00"
+	if !strings.HasPrefix(key, "00") {
 		return fmt.Errorf("無效的授權碼")
 	}
 
