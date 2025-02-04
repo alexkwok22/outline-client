@@ -6,7 +6,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"os"
+	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -27,22 +30,42 @@ type LicenseManager struct {
 
 // NewLicenseManager creates a new license manager
 func NewLicenseManager(licenseFile string) *LicenseManager {
-	return &LicenseManager{
+	manager := &LicenseManager{
 		licenseFile: licenseFile,
 	}
+	
+	// Create license directory if it doesn't exist
+	if dir := filepath.Dir(licenseFile); dir != "" {
+		err := os.MkdirAll(dir, 0755)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+	
+	// Try to load existing license
+	manager.loadLicense()
+	return manager
 }
 
 // ValidateLicense checks if a license key is valid
 func (lm *LicenseManager) ValidateLicense(key string) error {
-	// TODO: Implement actual license validation
-	// This should involve:
-	// 1. Checking against a license server
-	// 2. Validating the signature
-	// 3. Checking expiration
-
-	// For now, we'll just do a basic check
+	// Remove any whitespace
+	key = strings.TrimSpace(key)
+	
+	// Basic validation
 	if len(key) < 32 {
-		return fmt.Errorf("invalid license key")
+		return fmt.Errorf("授權碼長度不足")
+	}
+
+	// Create a hash of the key
+	hasher := sha256.New()
+	hasher.Write([]byte(key))
+	hash := hex.EncodeToString(hasher.Sum(nil))
+
+	// Check if the hash matches our pattern
+	// This is a simple example - in production you'd want to check against a server
+	if !strings.HasPrefix(hash, "00") {
+		return fmt.Errorf("無效的授權碼")
 	}
 
 	return nil
@@ -54,11 +77,12 @@ func (lm *LicenseManager) ActivateLicense(key string) error {
 		return err
 	}
 
+	// Create a new license
 	license := &License{
 		Key:       key,
-		IssuedTo:  "User", // This should come from the license server
+		IssuedTo:  "User", // In production, this would come from a server
 		IssuedAt:  time.Now(),
-		ExpiresAt: time.Now().AddDate(1, 0, 0), // 1 year license
+		ExpiresAt: time.Now().AddDate(0, 1, 0), // 1 month license
 		Features:  []string{"basic", "premium"},
 	}
 
@@ -77,18 +101,23 @@ func (lm *LicenseManager) IsLicenseValid() bool {
 		return false
 	}
 
-	return time.Now().Before(lm.currentLicense.ExpiresAt)
+	// Check if license has expired
+	if time.Now().After(lm.currentLicense.ExpiresAt) {
+		return false
+	}
+
+	return true
 }
 
 // saveLicense saves the current license to disk
 func (lm *LicenseManager) saveLicense() error {
 	if lm.currentLicense == nil {
-		return fmt.Errorf("no license to save")
+		return fmt.Errorf("沒有授權可以保存")
 	}
 
-	data, err := json.Marshal(lm.currentLicense)
+	data, err := json.MarshalIndent(lm.currentLicense, "", "  ")
 	if err != nil {
-		return err
+		return fmt.Errorf("保存授權時發生錯誤: %v", err)
 	}
 
 	return ioutil.WriteFile(lm.licenseFile, data, 0600)
@@ -101,14 +130,32 @@ func (lm *LicenseManager) loadLicense() error {
 		if os.IsNotExist(err) {
 			return nil
 		}
-		return err
+		return fmt.Errorf("讀取授權檔案時發生錯誤: %v", err)
 	}
 
 	license := &License{}
 	if err := json.Unmarshal(data, license); err != nil {
-		return err
+		return fmt.Errorf("解析授權檔案時發生錯誤: %v", err)
 	}
 
 	lm.currentLicense = license
 	return nil
+}
+
+// GetLicenseInfo returns formatted license information
+func (lm *LicenseManager) GetLicenseInfo() map[string]interface{} {
+	if lm.currentLicense == nil {
+		return map[string]interface{}{
+			"status": "未授權",
+		}
+	}
+
+	daysLeft := int(time.Until(lm.currentLicense.ExpiresAt).Hours() / 24)
+	
+	return map[string]interface{}{
+		"status":    "已授權",
+		"issuedTo":  lm.currentLicense.IssuedTo,
+		"expiresIn": fmt.Sprintf("%d 天", daysLeft),
+		"features":  lm.currentLicense.Features,
+	}
 }

@@ -1,10 +1,10 @@
 package vpn
 
 import (
-	"encoding/json"
 	"fmt"
 	"net"
 	"sync"
+	"time"
 )
 
 // Config represents the VPN connection configuration
@@ -21,17 +21,18 @@ type Client struct {
 	isRunning  bool
 	mutex      sync.Mutex
 	connection net.Conn
+	startTime  time.Time
+	bytesRecv  uint64
+	bytesSent  uint64
 }
 
 // NewClient creates a new VPN client
-func NewClient(config *Config) *Client {
-	return &Client{
-		config: config,
-	}
+func NewClient() *Client {
+	return &Client{}
 }
 
 // Connect establishes a connection to the VPN server
-func (c *Client) Connect() error {
+func (c *Client) Connect(config *Config) error {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
@@ -39,6 +40,7 @@ func (c *Client) Connect() error {
 		return fmt.Errorf("client is already running")
 	}
 
+	c.config = config
 	// TODO: Implement actual connection logic
 	// This will involve:
 	// 1. Setting up the shadowsocks connection
@@ -46,6 +48,7 @@ func (c *Client) Connect() error {
 	// 3. Setting up routing tables
 
 	c.isRunning = true
+	c.startTime = time.Now()
 	return nil
 }
 
@@ -70,8 +73,8 @@ func (c *Client) Disconnect() error {
 	return nil
 }
 
-// Status returns the current connection status
-func (c *Client) Status() bool {
+// IsConnected returns whether the client is currently connected
+func (c *Client) IsConnected() bool {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 	return c.isRunning
@@ -79,10 +82,18 @@ func (c *Client) Status() bool {
 
 // GetStats returns connection statistics
 func (c *Client) GetStats() map[string]interface{} {
-	// TODO: Implement actual stats collection
-	return map[string]interface{}{
-		"bytesReceived": 0,
-		"bytesSent":    0,
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	stats := map[string]interface{}{
+		"bytesReceived": c.bytesRecv,
+		"bytesSent":    c.bytesSent,
 		"uptime":       0,
 	}
+
+	if c.isRunning {
+		stats["uptime"] = int(time.Since(c.startTime).Seconds())
+	}
+
+	return stats
 }
