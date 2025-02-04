@@ -6,26 +6,18 @@ export function ActivateLicense(arg1) {
   return window['go']['main']['App']['ActivateLicense'](arg1);
 }
 
-export function Connect(arg1, arg2, arg3) {
-  return window['go']['main']['App']['Connect'](arg1, arg2, arg3);
+export function ConnectVPN(arg1, arg2, arg3) {
+  return window['go']['main']['App']['ConnectVPN'](arg1, arg2, arg3);
 }
 
-export function Disconnect() {
-  return window['go']['main']['App']['Disconnect']();
+export function DisconnectVPN() {
+  return window['go']['main']['App']['DisconnectVPN']();
 }
 
 export function GetLicenseInfo() {
   return window['go']['main']['App']['GetLicenseInfo']();
 }
 
-export function GetLicenseStatus() {
-  return window['go']['main']['App']['GetLicenseStatus']();
-}
-
-export function GetStats() {
-  return window['go']['main']['App']['GetStats']();
-}
-
-export function GetStatus() {
-  return window['go']['main']['App']['GetStatus']();
+export function GetVPNStatus() {
+  return window['go']['main']['App']['GetVPNStatus']();
 }
